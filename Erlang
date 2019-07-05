@@ -1,0 +1,53 @@
+import numpy as np
+import pandas as pd
+
+###############Erlang Table###############
+Interval = 30. #min
+AHT = 240. #sec
+ReqSL = .9
+ReqSA = 30. #sec
+Shrinkage = .25
+
+NumberCalls = range(1,601,1)
+
+def ProbWait(intensity,agents): #list checked 
+  if intensity==0: return 0
+  else : k = 1/(1+(1-intensity/agents)*SumForPw(intensity,agents))
+  
+  if k<0: return 0
+  elif k>1:return 1
+  else: return k
+    
+def SumForPw(intensity,agents):
+  a=1
+  sum_a=0
+  for i in range(agents,0,-1):
+    a *= i/intensity
+    sum_a += a
+  return sum_a
+
+def ServLev(agents,intensity,reqsa,aht):
+  k = 1-(ProbWait(intensity,agents)*np.exp(-(agents-intensity)*reqsa/aht))
+  
+  if k<0: return 0
+  elif k>1:return 1
+  else: return k
+  
+def FindAgents(agents,intensity,reqsl,reqsa,aht):
+  while ServLev(agents,intensity,reqsa,aht) < reqsl:
+    agents += 1
+  return int(np.ceil(agents))
+###############################
+
+Erlang = list()
+for i in NumberCalls:
+  intensity = i*AHT/(Interval*60) #per 30min
+  agents = FindAgents(int(np.ceil(intensity)) ,intensity,ReqSL,ReqSA,AHT)
+  after_shrink = int(np.ceil(agents/(1-Shrinkage)))
+  occupancy = intensity/agents
+  Pw = ProbWait(intensity,agents)
+  SL = ServLev(agents,intensity,ReqSA,AHT)
+  ASA = Pw*AHT/(agents-intensity)
+  Erlang.append([i,agents,after_shrink,intensity,occupancy,Pw,SL,ASA])
+  
+Erlang =( pd.DataFrame(Erlang,columns=['#calls','#agents','after_shrink','intensity' ,'occupancy','Pw','SL','ASA'])).set_index('#calls')
